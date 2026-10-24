@@ -1,0 +1,6 @@
+[project]
+name = "stock-decision-agent"
+version = "0.1.0"
+description = "Auditable small-watchlist A-share research assistant"
+requires-python = ">=3.11"
+dependencies = []

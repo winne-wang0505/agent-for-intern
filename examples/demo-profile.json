@@ -1,0 +1,18 @@
+{
+  "experience": 2,
+  "loss_tolerance": 2,
+  "horizon": 2,
+  "financial_capacity": 2,
+  "personalization": {
+    "capital": 100000,
+    "max_loss_pct": 10,
+    "single_stock_cap_pct": 5,
+    "cash_needed_days": 365,
+    "experience": 2,
+    "emergency_fund_months": 6,
+    "excluded_types": [],
+    "allowed_boards": [
+      "main"
+    ]
+  }
+}
