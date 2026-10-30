@@ -6,9 +6,10 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+import urllib.error
 from unittest.mock import patch
 
-from stock_agent.app import TZ, Quote, analyze, risk_profile, main, model_comment
+from stock_agent.app import TZ, Quote, analyze, risk_profile, main, model_comment, model_failure
 from stock_agent.onboarding import create_profile
 from stock_agent.personalization import select_five
 
@@ -68,9 +69,28 @@ class WorkflowTests(unittest.TestCase):
             model_comment({'risk': {'level': '稳健', 'capital': 123456},
                            'selected': [{'symbol': 'sh600000', 'amount_limit': 12345}]})
             request = mock.return_value.open.call_args.args[0]
+            self.assertEqual(json.loads(request.data)['max_tokens'], 600)
             content = json.loads(json.loads(request.data)['messages'][1]['content'])
             self.assertNotIn('risk', content)
             self.assertNotIn('amount_limit', content['selected'][0])
+
+    def test_billing_error_is_actionable_and_redacted(self):
+        error = urllib.error.HTTPError('https://example.com', 402, 'sensitive-provider-message', {}, None)
+        result = model_failure(error)
+        self.assertEqual(result['category'], 'billing_required')
+        self.assertEqual(result['http_status'], 402)
+        self.assertNotIn('sensitive-provider-message', json.dumps(result))
+
+    def test_model_error_does_not_drop_rule_report(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder)/'report.json'
+            error = urllib.error.HTTPError('https://example.com', 402, 'billing', {}, None)
+            with patch('sys.argv', ['agent', '--demo', '--llm', '--output', str(output)]), patch('stock_agent.app.model_comment', side_effect=error), contextlib.redirect_stdout(io.StringIO()):
+                main()
+            report = json.loads(output.read_text())
+            self.assertEqual(report['model']['category'], 'billing_required')
+            self.assertEqual(len(report['selected']), 5)
+            self.assertEqual(report['mode'], 'DEMO')
 
     def test_duplicate_candidates_rejected(self):
         now = dt.datetime(2026, 10, 22, 10, tzinfo=TZ)
